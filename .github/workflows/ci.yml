@@ -17,4 +17,5 @@ jobs:
       - run: pip install -r requirements.txt
       - run: psql postgresql://postgres:postgres@localhost:5432/recon -f db/001_schema.sql
       - run: psql postgresql://postgres:postgres@localhost:5432/recon -f db/002_payouts.sql
+      - run: psql postgresql://postgres:postgres@localhost:5432/recon -f db/003_ledger_entry_type.sql
       - run: DATABASE_URL=postgresql://postgres:postgres@localhost:5432/recon python -m pytest -q

@@ -43,3 +43,41 @@ def duplicate_settlement(settlements: list[Settlement]) -> set[str]:
             dupes.add(s.txn_ref)
         seen.add(s.txn_ref)
     return dupes
+
+
+def payout_total_mismatch(stated_net_minor: int, line_totals_minor: int) -> bool:
+    """line_totals_minor is the sum of every detail line's signed amount
+    (captures positive, refunds/fees/chargebacks as they appear, typically
+    negative). A mismatch means the batch's lines don't add up to what the
+    gateway claims it paid out -- the payout itself is suspect, independent
+    of whether any individual line matches the ledger."""
+    return stated_net_minor != line_totals_minor
+
+
+def unknown_line(txn_ref: str | None, line_type: str) -> bool:
+    """True for a settlement row the matcher can't even attempt to place:
+    no txn_ref at all, or a line_type outside the ones we recognize. This is
+    the suspense bucket -- a data problem with the file, not a reconciliation
+    gap. A well-formed row that simply has no matching ledger row is
+    missing_in_ledger instead, not this."""
+    known_types = {"capture", "refund", "fee", "adjustment", "chargeback"}
+    return not txn_ref or not txn_ref.strip() or line_type not in known_types
+
+
+def payout_total_mismatch(stated_net_minor: int, line_totals_minor: int) -> bool:
+    """line_totals_minor is the sum of every detail line's signed amount
+    (captures positive, refunds/fees/chargebacks as they appear, typically
+    negative). A mismatch means the batch's lines don't add up to what the
+    gateway claims it paid out -- the payout itself is suspect, independent
+    of whether any individual line matches the ledger."""
+    return stated_net_minor != line_totals_minor
+
+
+def unknown_line(txn_ref: str | None, line_type: str) -> bool:
+    """True for a settlement row the matcher can't even attempt to place:
+    no txn_ref at all, or a line_type outside the ones we recognize. This is
+    the suspense bucket -- a data problem with the file, not a reconciliation
+    gap. A well-formed row that simply has no matching ledger row is
+    missing_in_ledger instead, not this."""
+    known_types = {"capture", "refund", "fee", "adjustment", "chargeback"}
+    return not txn_ref or not txn_ref.strip() or line_type not in known_types
