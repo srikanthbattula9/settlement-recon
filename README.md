@@ -47,7 +47,7 @@ Each class has its own test with a fixture that triggers exactly that case and n
 | Ingest (simulated CSV, idempotent by file content hash) | done, tested |
 | Matcher (ledger vs. settlements, per-gateway, per-run-date) | done, tested |
 | Eight mismatch classifiers + tests | done, tested (6 original + payout_total_mismatch + unknown_line) |
-| Gateway simulators (3 gateways, configurable fee schedules and chaos) | planned |
+| Gateway simulators (3 gateways, configurable fee schedules and chaos) | done, tested |
 | `/exceptions` API | planned |
 | Grafana dashboard | planned |
 
@@ -86,6 +86,36 @@ SLA window has passed; the capture/refund primary-key guarantee.
 `run_match()` is not idempotent across repeated calls for the same
 (gateway, date) -- re-running writes duplicate exception rows. It's meant
 to be run once per day per gateway; nothing enforces that yet.
+
+## Simulator
+
+`recon/simulate.py` generates one synthetic day for a gateway -- captures,
+some refunds, and the settlement file(s) a gateway would eventually send
+back -- and can run it straight through ingest and the matcher in one call
+(`run_demo_day`). Three gateways are pre-configured with different fee
+schedules and SLAs (`gw_alpha`, `gw_beta`, `gw_gamma`). Chaos is explicit
+at the low level (`build_settlement_lines` takes a set of txn_refs per
+mismatch type, so a test can assert exactly what happens to a given ref)
+and probabilistic only in the CLI's `random_chaos` layer, for a realistic
+demo run.
+
+A real run:
+
+gateway=gw_alpha day=2026-10-05 n=100 chaos=none seed=1 matched=100 exceptions=0 by_class={}
+gateway=gw_beta day=2026-10-06 n=150 chaos=light seed=2 matched=158 exceptions=25 by_class={‘timing_lag’: 6, ‘fee_mismatch’: 5, ‘duplicate_settlement’: 3, ‘amount_mismatch’: 4, ‘unknown_line’: 1, ‘missing_in_settlement’: 6}
+gateway=gw_gamma day=2026-10-07 n=200 chaos=heavy seed=3 matched=214 exceptions=100 by_class={‘fee_mismatch’: 17, ‘amount_mismatch’: 15, ‘duplicate_settlement’: 19, ‘timing_lag’: 31, ‘unknown_line’: 3, ‘missing_in_settlement’: 14, ‘payout_total_mismatch’: 1}
+
+
+`chaos=none` is a useful smoke test on its own: 100 generated transactions
+matched cleanly, the pipeline's baseline correctness check. `gw_gamma`'s
+`payout_total_mismatch` above is `bad_payout_total` chaos deliberately
+overriding one payout's stated net to `999,999,999`; the matcher caught it.
+
+Tested (`tests/test_simulate.py`, 11 tests): each chaos type applied to
+exactly its targeted refs and no others; split is round-robin and preserves
+every line; the random layer is deterministic for a given seed; a
+zero-chaos day matches everything with no exceptions; a chaotic day's
+exceptions are all known classes and sum to the reported total.
 
 ## Stack
 
